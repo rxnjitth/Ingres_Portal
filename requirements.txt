@@ -1,0 +1,19 @@
+# Core dependencies
+chromadb==1.1.0
+sentence-transformers==5.1.1
+pandas==2.3.2
+numpy==2.3.3
+tqdm==4.67.1
+
+# Excel handling
+openpyxl==3.1.5
+
+# Optional but recommended
+torch==2.8.0  # For faster embedding generation
+
+# Visualization (if needed)
+matplotlib==3.9.1
+seaborn==0.13.1
+
+# Development tools
+ipykernel==6.28.0  # For Jupyter notebook support
