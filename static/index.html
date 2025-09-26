@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Groundwater Level Predictor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        select, input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            border-left: 5px solid #2196F3;
+        }
+        
+        .result h3 {
+            color: #1976D2;
+            margin-bottom: 10px;
+        }
+        
+        .result p {
+            margin-bottom: 5px;
+            color: #333;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: #ffebee;
+            border-left: 5px solid #f44336;
+            color: #c62828;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .predictions-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .predictions-table th,
+        .predictions-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .predictions-table th {
+            background: #f5f5f5;
+            font-weight: bold;
+        }
+        
+        .predictions-table tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: #f5f5f5;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+            margin-right: 2px;
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+        }
+        
+        .tab:hover:not(.active) {
+            background: #e0e0e0;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 20px 0;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .status-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .status-card.low {
+            border-left-color: #FF9800;
+        }
+        
+        .status-card.critical {
+            border-left-color: #f44336;
+        }
+        
+        .status-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .status-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        
+        .timeline-controls {
+            margin-bottom: 20px;
+        }
+        
+        .timeline-controls select {
+            width: auto;
+            display: inline-block;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌊 Groundwater Level Predictor</h1>
+            <p>Predict groundwater levels across Indian states and districts using AI</p>
+        </div>
+        
+        <div class="content">
+            <!-- Navigation Tabs -->
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('predictions')">🔮 Future Predictions</button>
+                <button class="tab" onclick="showTab('historical')">📊 Historical Data</button>
+                <button class="tab" onclick="showTab('current')">🌊 Current Status</button>
+                <button class="tab" onclick="showTab('timeline')">📈 Complete Timeline</button>
+            </div>
+
+            <!-- Future Predictions Tab -->
+            <div id="predictions" class="tab-content active">
+                <div class="grid">
+                    <!-- Single Prediction -->
+                    <div class="section">
+                        <h2>🎯 Single Location Prediction</h2>
+                    <form id="singlePredictionForm">
+                        <div class="form-group">
+                            <label for="state">State:</label>
+                            <select id="state" name="state" required>
+                                <option value="">Select State</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="district">District:</label>
+                            <select id="district" name="district" required>
+                                <option value="">Select District</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="year">Year:</label>
+                            <input type="number" id="year" name="year" min="2025" max="2050" value="2026" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="month">Month:</label>
+                            <select id="month" name="month" required>
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6" selected>June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn">Predict Groundwater Level</button>
+                    </form>
+                    
+                    <div id="singleLoading" class="loading">
+                        <div class="spinner"></div>
+                        <p>Predicting groundwater level...</p>
+                    </div>
+                    
+                    <div id="singleResult" style="display: none;"></div>
+                </div>
+                
+                <!-- State Overview -->
+                <div class="section">
+                    <h2>🗺️ State Overview</h2>
+                    <form id="stateOverviewForm">
+                        <div class="form-group">
+                            <label for="overviewState">State:</label>
+                            <select id="overviewState" name="overviewState" required>
+                                <option value="">Select State</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="overviewMonths">Months to Predict:</label>
+                            <select id="overviewMonths" name="overviewMonths" required>
+                                <option value="3">Next 3 months</option>
+                                <option value="6">Next 6 months</option>
+                                <option value="12" selected>Next 12 months</option>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn">Get State Overview</button>
+                    </form>
+                    
+                    <div id="overviewLoading" class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading state predictions...</p>
+                    </div>
+                    
+                    <div id="overviewResult" style="display: none;"></div>
+                </div>
+            </div>
+
+            <!-- API Information -->
+            <div class="section">
+                <h2>📡 API Endpoints</h2>
+                <div class="grid">
+                    <div class="card">
+                        <h3>Available Locations</h3>
+                        <p><strong>GET</strong> <code>/locations</code></p>
+                        <p>Get all available states and districts</p>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>Single Prediction</h3>
+                        <p><strong>POST</strong> <code>/predict</code></p>
+                        <p>Predict for a specific location and time</p>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>Bulk Predictions</h3>
+                        <p><strong>POST</strong> <code>/predict/bulk</code></p>
+                        <p>Predict for multiple locations</p>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>State Predictions</h3>
+                        <p><strong>GET</strong> <code>/predict/state/{state_name}</code></p>
+                        <p>All districts in a state</p>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+            <!-- Historical Data Tab -->
+            <div id="historical" class="tab-content">
+                <div class="section">
+                    <h2>📊 Historical Groundwater Data</h2>
+                    <form id="historicalDataForm">
+                        <div class="grid">
+                            <div>
+                                <div class="form-group">
+                                    <label for="histState">State:</label>
+                                    <select id="histState" name="histState" required>
+                                        <option value="">Select State</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="histDistrict">District:</label>
+                                    <select id="histDistrict" name="histDistrict" required>
+                                        <option value="">Select District</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <div class="form-group">
+                                    <label for="histStartYear">Start Year:</label>
+                                    <select id="histStartYear" name="histStartYear" required>
+                                        <option value="2020">2020</option>
+                                        <option value="2021">2021</option>
+                                        <option value="2022">2022</option>
+                                        <option value="2023">2023</option>
+                                        <option value="2024">2024</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="histEndYear">End Year:</label>
+                                    <select id="histEndYear" name="histEndYear" required>
+                                        <option value="2021">2021</option>
+                                        <option value="2022">2022</option>
+                                        <option value="2023">2023</option>
+                                        <option value="2024">2024</option>
+                                        <option value="2025" selected>2025</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn">View Historical Data</button>
+                    </form>
+                    
+                    <div id="historicalLoading" class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading historical data...</p>
+                    </div>
+                    
+                    <div id="historicalResult" style="display: none;"></div>
+                    
+                    <div class="chart-container" style="display: none;" id="historicalChartContainer">
+                        <canvas id="historicalChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Status Tab -->
+            <div id="current" class="tab-content">
+                <div class="section">
+                    <h2>🌊 Current Groundwater Status (2025)</h2>
+                    <button onclick="loadCurrentStatus()" class="btn">Refresh Current Status</button>
+                    
+                    <div id="currentLoading" class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading current status...</p>
+                    </div>
+                    
+                    <div id="currentStatusResult" style="display: none;"></div>
+                </div>
+            </div>
+
+            <!-- Complete Timeline Tab -->
+            <div id="timeline" class="tab-content">
+                <div class="section">
+                    <h2>📈 Complete Timeline Analysis</h2>
+                    <form id="timelineForm">
+                        <div class="timeline-controls">
+                            <div class="grid">
+                                <div>
+                                    <div class="form-group">
+                                        <label for="timelineState">State:</label>
+                                        <select id="timelineState" name="timelineState" required>
+                                            <option value="">Select State</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="timelineDistrict">District:</label>
+                                        <select id="timelineDistrict" name="timelineDistrict" required>
+                                            <option value="">Select District</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <div class="form-group">
+                                        <label for="futureYears">Future Years to Show:</label>
+                                        <select id="futureYears" name="futureYears">
+                                            <option value="1">1 Year</option>
+                                            <option value="2" selected>2 Years</option>
+                                            <option value="3">3 Years</option>
+                                            <option value="5">5 Years</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn">Generate Complete Timeline</button>
+                    </form>
+                    
+                    <div id="timelineLoading" class="loading">
+                        <div class="spinner"></div>
+                        <p>Generating complete timeline...</p>
+                    </div>
+                    
+                    <div id="timelineResult" style="display: none;"></div>
+                    
+                    <div class="chart-container" style="display: none;" id="timelineChartContainer">
+                        <canvas id="timelineChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let availableLocations = {};
+
+        // Load available locations on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            loadLocations();
+            loadCurrentStatus(); // Auto-load current status
+        });
+
+        async function loadLocations() {
+            try {
+                const response = await fetch(`${API_BASE}/locations`);
+                const data = await response.json();
+                
+                availableLocations = data.districts_by_state;
+                
+                // Populate state dropdowns
+                const stateSelect = document.getElementById('state');
+                const overviewStateSelect = document.getElementById('overviewState');
+                const histStateSelect = document.getElementById('histState');
+                const timelineStateSelect = document.getElementById('timelineState');
+                
+                Object.keys(availableLocations).sort().forEach(state => {
+                    const option1 = new Option(state, state);
+                    const option2 = new Option(state, state);
+                    const option3 = new Option(state, state);
+                    const option4 = new Option(state, state);
+                    
+                    stateSelect.add(option1);
+                    overviewStateSelect.add(option2);
+                    histStateSelect.add(option3);
+                    timelineStateSelect.add(option4);
+                });
+                
+            } catch (error) {
+                console.error('Error loading locations:', error);
+                showError('singleResult', 'Failed to load available locations');
+            }
+        }
+
+        // Update districts when state changes
+        function updateDistricts(stateSelectId, districtSelectId) {
+            const stateSelect = document.getElementById(stateSelectId);
+            const districtSelect = document.getElementById(districtSelectId);
+            
+            const selectedState = stateSelect.value;
+            
+            // Clear existing options
+            districtSelect.innerHTML = '<option value="">Select District</option>';
+            
+            if (selectedState && availableLocations[selectedState]) {
+                availableLocations[selectedState].sort().forEach(district => {
+                    const option = new Option(district, district);
+                    districtSelect.add(option);
+                });
+            }
+        }
+
+        // Add event listeners for all state dropdowns
+        document.getElementById('state').addEventListener('change', function() {
+            updateDistricts('state', 'district');
+        });
+
+        document.getElementById('histState').addEventListener('change', function() {
+            updateDistricts('histState', 'histDistrict');
+        });
+
+        document.getElementById('timelineState').addEventListener('change', function() {
+            updateDistricts('timelineState', 'timelineDistrict');
+        });
+
+        // Handle single prediction form
+        document.getElementById('singlePredictionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = {
+                state: formData.get('state'),
+                district: formData.get('district'),
+                year: parseInt(formData.get('year')),
+                month: parseInt(formData.get('month'))
+            };
+            
+            showLoading('singleLoading', true);
+            hideElement('singleResult');
+            
+            try {
+                const response = await fetch(`${API_BASE}/predict`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showSinglePredictionResult(result);
+                } else {
+                    showError('singleResult', result.detail || 'Prediction failed');
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showError('singleResult', 'Network error occurred');
+            } finally {
+                showLoading('singleLoading', false);
+            }
+        });
+
+        // Handle state overview form
+        document.getElementById('stateOverviewForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const state = formData.get('overviewState');
+            const months = formData.get('overviewMonths');
+            
+            showLoading('overviewLoading', true);
+            hideElement('overviewResult');
+            
+            try {
+                const response = await fetch(`${API_BASE}/predict/state/${state}?months=${months}`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showStateOverviewResult(result);
+                } else {
+                    showError('overviewResult', result.detail || 'State overview failed');
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showError('overviewResult', 'Network error occurred');
+            } finally {
+                showLoading('overviewLoading', false);
+            }
+        });
+
+        function showSinglePredictionResult(data) {
+            const resultDiv = document.getElementById('singleResult');
+            const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                              'July', 'August', 'September', 'October', 'November', 'December'];
+            
+            resultDiv.innerHTML = `
+                <div class="result">
+                    <h3>🎯 Prediction Result</h3>
+                    <p><strong>Location:</strong> ${data.district}, ${data.state}</p>
+                    <p><strong>Time:</strong> ${monthNames[data.month]} ${data.year}</p>
+                    <p><strong>Predicted Groundwater Level:</strong> <span style="font-size: 1.2em; color: #2196F3; font-weight: bold;">${data.predicted_groundwater_level} meters</span></p>
+                    <p><strong>Prediction Date:</strong> ${new Date(data.prediction_date).toLocaleString()}</p>
+                </div>
+            `;
+            resultDiv.style.display = 'block';
+        }
+
+        function showStateOverviewResult(data) {
+            const resultDiv = document.getElementById('overviewResult');
+            
+            // Group predictions by district and calculate averages
+            const districtAverages = {};
+            data.predictions.forEach(pred => {
+                if (!districtAverages[pred.district]) {
+                    districtAverages[pred.district] = { sum: 0, count: 0 };
+                }
+                districtAverages[pred.district].sum += pred.predicted_groundwater_level;
+                districtAverages[pred.district].count++;
+            });
+            
+            let tableRows = '';
+            Object.keys(districtAverages).sort().forEach(district => {
+                const avg = (districtAverages[district].sum / districtAverages[district].count).toFixed(2);
+                tableRows += `
+                    <tr>
+                        <td>${district}</td>
+                        <td>${avg}</td>
+                    </tr>
+                `;
+            });
+            
+            resultDiv.innerHTML = `
+                <div class="result">
+                    <h3>🗺️ State Overview: ${data.state}</h3>
+                    <p><strong>Districts:</strong> ${data.districts_count}</p>
+                    <p><strong>Months Predicted:</strong> ${data.months_predicted}</p>
+                    <p><strong>Total Predictions:</strong> ${data.predictions.length}</p>
+                    
+                    <h4>Average Groundwater Levels by District:</h4>
+                    <table class="predictions-table">
+                        <thead>
+                            <tr>
+                                <th>District</th>
+                                <th>Avg. Groundwater Level (m)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            resultDiv.style.display = 'block';
+        }
+
+        function showError(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `
+                <div class="result error">
+                    <h3>⚠️ Error</h3>
+                    <p>${message}</p>
+                </div>
+            `;
+            element.style.display = 'block';
+        }
+
+        function showLoading(elementId, show) {
+            const element = document.getElementById(elementId);
+            element.style.display = show ? 'block' : 'none';
+        }
+
+        function hideElement(elementId) {
+            document.getElementById(elementId).style.display = 'none';
+        }
+
+        // Tab management functions
+        function showTab(tabName) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Remove active class from all tabs
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        // Historical data form handler
+        document.getElementById('historicalDataForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const state = formData.get('histState');
+            const district = formData.get('histDistrict');
+            const startYear = formData.get('histStartYear');
+            const endYear = formData.get('histEndYear');
+            
+            showLoading('historicalLoading', true);
+            hideElement('historicalResult');
+            hideElement('historicalChartContainer');
+            
+            try {
+                const response = await fetch(`${API_BASE}/historical/data/${state}/${district}?start_year=${startYear}&end_year=${endYear}`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showHistoricalDataResult(result);
+                } else {
+                    showError('historicalResult', result.detail || 'Failed to load historical data');
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showError('historicalResult', 'Network error occurred');
+            } finally {
+                showLoading('historicalLoading', false);
+            }
+        });
+
+        // Timeline form handler
+        document.getElementById('timelineForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const state = formData.get('timelineState');
+            const district = formData.get('timelineDistrict');
+            const futureYears = formData.get('futureYears');
+            
+            showLoading('timelineLoading', true);
+            hideElement('timelineResult');
+            hideElement('timelineChartContainer');
+            
+            try {
+                const response = await fetch(`${API_BASE}/timeline/${state}/${district}?future_years=${futureYears}`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showTimelineResult(result);
+                } else {
+                    showError('timelineResult', result.detail || 'Failed to load timeline data');
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showError('timelineResult', 'Network error occurred');
+            } finally {
+                showLoading('timelineLoading', false);
+            }
+        });
+
+        // Load current status
+        async function loadCurrentStatus() {
+            showLoading('currentLoading', true);
+            hideElement('currentStatusResult');
+            
+            try {
+                const response = await fetch(`${API_BASE}/current/status`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showCurrentStatusResult(result);
+                } else {
+                    showError('currentStatusResult', result.detail || 'Failed to load current status');
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showError('currentStatusResult', 'Network error occurred');
+            } finally {
+                showLoading('currentLoading', false);
+            }
+        }
+
+        // Show historical data result
+        function showHistoricalDataResult(data) {
+            const resultDiv = document.getElementById('historicalResult');
+            
+            resultDiv.innerHTML = `
+                <div class="result">
+                    <h3>📊 Historical Data: ${data.district}, ${data.state}</h3>
+                    <p><strong>Period:</strong> ${data.data_period}</p>
+                    <p><strong>Total Records:</strong> ${data.total_records}</p>
+                    <p><strong>Retrieved:</strong> ${new Date(data.retrieval_date).toLocaleString()}</p>
+                </div>
+            `;
+            
+            resultDiv.style.display = 'block';
+            
+            // Create chart
+            createHistoricalChart(data.historical_data);
+        }
+
+        // Show current status result
+        function showCurrentStatusResult(data) {
+            const resultDiv = document.getElementById('currentStatusResult');
+            
+            const overallStats = data.overall_status;
+            
+            let statusCards = '';
+            data.state_wise_status.slice(0, 10).forEach(state => {
+                const cardClass = state.status_category.toLowerCase();
+                statusCards += `
+                    <div class="status-card ${cardClass}">
+                        <div class="status-value">${state.avg_groundwater_level}m</div>
+                        <div class="status-label">${state.state}</div>
+                        <div class="status-label">Status: ${state.status_category}</div>
+                        <div class="status-label">${state.districts_monitored} districts</div>
+                    </div>
+                `;
+            });
+            
+            resultDiv.innerHTML = `
+                <div class="result">
+                    <h3>🌊 National Groundwater Status</h3>
+                    
+                    <div class="status-grid">
+                        <div class="status-card">
+                            <div class="status-value">${overallStats.national_avg_groundwater_level}m</div>
+                            <div class="status-label">National Average</div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-value">${overallStats.total_states}</div>
+                            <div class="status-label">States Monitored</div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-value">${overallStats.total_districts_monitored}</div>
+                            <div class="status-label">Districts Monitored</div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-value">${overallStats.states_normal}</div>
+                            <div class="status-label">States Normal</div>
+                        </div>
+                    </div>
+                    
+                    <h4>State-wise Status (Top 10)</h4>
+                    <div class="status-grid">
+                        ${statusCards}
+                    </div>
+                </div>
+            `;
+            
+            resultDiv.style.display = 'block';
+        }
+
+        // Show timeline result
+        function showTimelineResult(data) {
+            const resultDiv = document.getElementById('timelineResult');
+            
+            const summary = data.summary;
+            const trendAnalysis = data.trend_analysis;
+            
+            resultDiv.innerHTML = `
+                <div class="result">
+                    <h3>📈 Complete Timeline: ${data.district}, ${data.state}</h3>
+                    
+                    <div class="status-grid">
+                        <div class="status-card">
+                            <div class="status-value">${summary.total_past_records}</div>
+                            <div class="status-label">Historical Records (${summary.date_range.past})</div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-value">${summary.total_present_records}</div>
+                            <div class="status-label">Present Records (${summary.date_range.present})</div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-value">${summary.total_future_predictions}</div>
+                            <div class="status-label">Future Predictions (${summary.date_range.future})</div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-value">${trendAnalysis.average_level || 'N/A'}m</div>
+                            <div class="status-label">Historical Average</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            resultDiv.style.display = 'block';
+            
+            // Create timeline chart
+            createTimelineChart(data.timeline_data);
+        }
+
+        // Create historical chart
+        function createHistoricalChart(data) {
+            const canvas = document.getElementById('historicalChart');
+            const container = document.getElementById('historicalChartContainer');
+            
+            if (!canvas || !data || data.length === 0) return;
+            
+            // Destroy existing chart if any
+            if (window.historicalChartInstance) {
+                window.historicalChartInstance.destroy();
+            }
+            
+            const ctx = canvas.getContext('2d');
+            
+            const labels = data.map(record => `${record.month_name} ${record.year}`);
+            const groundwaterLevels = data.map(record => record.groundwater_level);
+            const rainfall = data.map(record => record.rainfall_mm);
+            
+            window.historicalChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Groundwater Level (m)',
+                        data: groundwaterLevels,
+                        borderColor: '#2196F3',
+                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                        tension: 0.4,
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Rainfall (mm)',
+                        data: rainfall,
+                        borderColor: '#4CAF50',
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        tension: 0.4,
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Groundwater Level (m)'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Rainfall (mm)'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Historical Groundwater Levels and Rainfall'
+                        },
+                        legend: {
+                            display: true
+                        }
+                    }
+                }
+            });
+            
+            container.style.display = 'block';
+        }
+
+        // Create timeline chart
+        function createTimelineChart(timelineData) {
+            const canvas = document.getElementById('timelineChart');
+            const container = document.getElementById('timelineChartContainer');
+            
+            if (!canvas || !timelineData) return;
+            
+            // Destroy existing chart if any
+            if (window.timelineChartInstance) {
+                window.timelineChartInstance.destroy();
+            }
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Combine all data
+            const allData = [
+                ...timelineData.past_data.map(d => ({...d, type: 'past'})),
+                ...timelineData.present_data.map(d => ({...d, type: 'present'})),
+                ...timelineData.future_predictions.map(d => ({...d, type: 'future'}))
+            ];
+            
+            // Sort by date
+            allData.sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            const labels = allData.map(record => `${record.month_name || record.month} ${record.year}`);
+            const levels = allData.map(record => record.groundwater_level);
+            
+            // Create color array based on data type
+            const colors = allData.map(record => {
+                switch(record.type) {
+                    case 'past': return '#FF9800';
+                    case 'present': return '#4CAF50';
+                    case 'future': return '#2196F3';
+                    default: return '#666';
+                }
+            });
+            
+            window.timelineChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Groundwater Level (m)',
+                        data: levels,
+                        borderColor: '#2196F3',
+                        backgroundColor: colors.map(color => color + '20'),
+                        pointBackgroundColor: colors,
+                        pointBorderColor: colors,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Groundwater Level (m)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Complete Timeline: Past, Present & Future'
+                        },
+                        legend: {
+                            display: true
+                        }
+                    }
+                }
+            });
+            
+            container.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
