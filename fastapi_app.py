@@ -3,13 +3,29 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 import pandas as pd
 import numpy as np
 from ml_model import GroundwaterPredictor
 import uvicorn
 from datetime import datetime, timedelta
 import json
+
+# Utility function to convert numpy types to native Python types
+def convert_numpy_types(obj: Any) -> Any:
+    """Convert numpy types to native Python types for JSON serialization"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    else:
+        return obj
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -81,18 +97,41 @@ class TimelineData(BaseModel):
     future_predictions: List[Dict]  # 2026+
 
 def initialize_model():
-    """Initialize the ML model and load location data"""
+    """Initialize the ML model and load location data with automatic format detection"""
     global predictor, available_locations, processed_data
     
     try:
-        # Initialize and load the trained model
-        predictor = GroundwaterPredictor()
+        # Initialize predictor
+        predictor = GroundwaterPredictor(use_gpu=True)
         
-        if not predictor.load_model("groundwater_model.joblib"):
-            print("Model not found, training new model...")
+        # Try to load model in different formats (priority: joblib, pickle)
+        model_loaded = False
+        
+        # Try loading the latest model first
+        model_paths = [
+            "groundwater_model.joblib",
+            "groundwater_model.pkl", 
+            "groundwater_model_backup.joblib",
+            "groundwater_model_backup.pkl"
+        ]
+        
+        for model_path in model_paths:
+            if predictor.load_model(model_path, auto_detect_format=True):
+                print(f"✅ Successfully loaded model from {model_path}")
+                model_loaded = True
+                break
+        
+        if not model_loaded:
+            print("❌ No trained model found. Training new model with GPU acceleration...")
             # If model doesn't exist, train it
             from ml_model import main as train_model
-            predictor, _ = train_model()
+            predictor, metrics = train_model(use_gpu=True, model_type="auto")
+            
+            if predictor and predictor.is_trained:
+                print("✅ New model trained successfully")
+                model_loaded = True
+            else:
+                raise Exception("Failed to train new model")
         
         # Load processed data to get available locations
         processed_data = pd.read_csv("processed_groundwater_data.csv")
@@ -106,11 +145,16 @@ def initialize_model():
             districts = locations_df[locations_df['state'] == state]['district'].unique().tolist()
             available_locations[state] = sorted(districts)
         
-        print(f"Model initialized successfully with {len(available_locations)} states")
+        print(f"🚀 Model initialized successfully!")
+        print(f"   States available: {len(available_locations)}")
+        print(f"   GPU support: {predictor.gpu_available}")
+        
         return True
         
     except Exception as e:
-        print(f"Error initializing model: {e}")
+        print(f"❌ Error initializing model: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 @app.on_event("startup")
@@ -169,7 +213,7 @@ async def predict_groundwater_level(request: PredictionRequest):
             district=request.district.upper(),
             year=request.year,
             month=request.month,
-            predicted_groundwater_level=round(prediction, 2),
+            predicted_groundwater_level=round(float(prediction), 2),
             prediction_date=datetime.now().isoformat()
         )
         
@@ -212,14 +256,16 @@ async def bulk_predict(request: BulkPredictionRequest):
                         "district": district,
                         "year": year,
                         "month": month,
-                        "predicted_groundwater_level": round(prediction, 2)
+                        "predicted_groundwater_level": round(float(prediction), 2)
                     })
         
-        return {
+        result = {
             "predictions": predictions,
             "total_predictions": len(predictions),
             "prediction_date": datetime.now().isoformat()
         }
+        
+        return convert_numpy_types(result)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Bulk prediction failed: {str(e)}")
@@ -259,16 +305,18 @@ async def predict_state_districts(state_name: str, months: Optional[int] = 12):
                     "year": year,
                     "month": month,
                     "month_name": future_date.strftime("%B"),
-                    "predicted_groundwater_level": round(prediction, 2)
+                    "predicted_groundwater_level": round(float(prediction), 2)
                 })
         
-        return {
+        result = {
             "state": state_upper,
             "districts_count": len(districts),
             "months_predicted": months,
             "predictions": predictions,
             "prediction_date": datetime.now().isoformat()
         }
+        
+        return convert_numpy_types(result)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"State prediction failed: {str(e)}")
@@ -316,10 +364,10 @@ async def predict_district_timeline(
                     "month": month,
                     "month_name": date_obj.strftime("%B"),
                     "date": date_obj.strftime("%Y-%m"),
-                    "predicted_groundwater_level": round(prediction, 2)
+                    "predicted_groundwater_level": round(float(prediction), 2)
                 })
         
-        return {
+        result = {
             "state": state_upper,
             "district": district_upper,
             "start_year": start_year,
@@ -327,6 +375,8 @@ async def predict_district_timeline(
             "predictions": predictions,
             "prediction_date": datetime.now().isoformat()
         }
+        
+        return convert_numpy_types(result)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"District timeline prediction failed: {str(e)}")
@@ -406,7 +456,7 @@ async def get_historical_data(
             }
             historical_records.append(record)
         
-        return {
+        result = {
             "state": matched_state,
             "district": matched_district,
             "start_year": start_year,
@@ -416,6 +466,8 @@ async def get_historical_data(
             "data_period": f"{start_year}-{end_year}",
             "retrieval_date": datetime.now().isoformat()
         }
+        
+        return convert_numpy_types(result)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve historical data: {str(e)}")
@@ -572,7 +624,7 @@ async def get_complete_timeline(
         else:
             trend_analysis = {}
         
-        return {
+        result = {
             "state": state_upper,
             "district": district_upper,
             "timeline_data": {
@@ -593,6 +645,8 @@ async def get_complete_timeline(
             "trend_analysis": trend_analysis,
             "retrieval_date": datetime.now().isoformat()
         }
+        
+        return convert_numpy_types(result)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get timeline data: {str(e)}")
@@ -643,12 +697,14 @@ async def get_current_status():
             "states_critical": len([s for s in status_data if s['status_category'] == 'Critical'])
         }
         
-        return {
+        result = {
             "current_year": 2025,
             "overall_status": overall_stats,
             "state_wise_status": sorted(status_data, key=lambda x: x['state']),
             "last_updated": datetime.now().isoformat()
         }
+        
+        return convert_numpy_types(result)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get current status: {str(e)}")
@@ -660,19 +716,20 @@ async def get_data_sample():
         return {"error": "No data loaded"}
     
     sample = processed_data.head(10).to_dict('records')
-    return {
+    result = {
         "total_records": len(processed_data),
         "columns": list(processed_data.columns),
         "sample_data": sample,
-        "unique_states": processed_data['state'].nunique(),
-        "unique_districts": processed_data['district'].nunique(),
+        "unique_states": int(processed_data['state'].nunique()),
+        "unique_districts": int(processed_data['district'].nunique()),
         "year_range": [int(processed_data['year'].min()), int(processed_data['year'].max())]
     }
+    return convert_numpy_types(result)
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {
+    result = {
         "status": "healthy",
         "model_loaded": predictor is not None and predictor.is_trained,
         "locations_loaded": len(available_locations) > 0,
@@ -680,6 +737,7 @@ async def health_check():
         "total_historical_records": len(processed_data) if processed_data is not None else 0,
         "timestamp": datetime.now().isoformat()
     }
+    return convert_numpy_types(result)
 
 if __name__ == "__main__":
     uvicorn.run(

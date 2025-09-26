@@ -1,0 +1,43 @@
+{
+  "model_path": "groundwater_model.joblib",
+  "format_type": "joblib",
+  "feature_count": 27,
+  "feature_columns": [
+    "year",
+    "month_num",
+    "quarter",
+    "day_of_year",
+    "is_monsoon",
+    "is_winter",
+    "state_encoded",
+    "district_encoded",
+    "rainfall_mm",
+    "rainfall_nc",
+    "rainfall_pq",
+    "total_rainfall",
+    "geographical_area_ha",
+    "recharge_area_ha",
+    "total_area_ha",
+    "groundwater_recharge_ham",
+    "recharge_nc",
+    "total_recharge",
+    "total_rainfall_lag1",
+    "total_rainfall_lag3",
+    "total_rainfall_lag12",
+    "total_recharge_lag1",
+    "total_recharge_lag3",
+    "total_recharge_lag12",
+    "groundwater_level_lag1",
+    "groundwater_level_lag3",
+    "groundwater_level_lag12"
+  ],
+  "target_column": "groundwater_level",
+  "saved_timestamp": "2025-09-26T17:34:02.997457",
+  "format_version": "2.0",
+  "metrics": {
+    "mse": 47.51542031572215,
+    "rmse": 6.89314299254862,
+    "mae": 5.501917159884653,
+    "r2": -1.7046380683830482
+  }
+}
