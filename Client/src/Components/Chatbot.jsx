@@ -1,10 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-const API_KEY = "AIzaSyD67ytyDvb8HA4AB-NoqizdPJ9K_kzBlzo";
-
-const genAI = new GoogleGenerativeAI(API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-05-20" });
 
 // Professional SVG Icons
 const SendIcon = ({ size = 20, className = "" }) => (
@@ -17,15 +11,15 @@ const MenuIcon = ({ size = 20, className = "", isHovered = false }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <line 
       x1="3" y1="6" x2="21" y2="6" 
-      className={`transition-all duration-300 ${isHovered ? 'transform translate-y-0.5' : ''}`}
+      className={`transition-all duration-500 ${isHovered ? 'transform translate-y-2' : ''}`}
     />
     <line 
       x1="3" y1="12" x2="21" y2="12" 
-      className={`transition-all duration-300 ${isHovered ? 'transform scale-110' : ''}`}
+      className={`transition-all duration-500 ${isHovered ? 'transform scale-x-75' : ''}`}
     />
     <line 
       x1="3" y1="18" x2="21" y2="18" 
-      className={`transition-all duration-300 ${isHovered ? 'transform -translate-y-0.5' : ''}`}
+      className={`transition-all duration-500 ${isHovered ? 'transform -translate-y-2' : ''}`}
     />
   </svg>
 );
@@ -84,6 +78,13 @@ const GlobeIcon = ({ size = 16, className = "" }) => (
   </svg>
 );
 
+const ArrowUpIcon = ({ size = 20, className = "" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="m5 12 7-7 7 7"/>
+    <path d="M12 19V5"/>
+  </svg>
+);
+
 // Loading Animation Component
 const LoadingDots = () => (
   <div className="flex items-center space-x-1">
@@ -97,21 +98,14 @@ const LoadingDots = () => (
 const LanguageSelector = ({ language, setLanguage, theme }) => {
   const [isOpen, setIsOpen] = useState(false);
   
+  // Supported languages based on Gemini API capabilities and project context
   const languageOptions = {
-    en: { name: 'English', flag: '🇬🇧' },
-    hi: { name: 'हिन्दी', flag: '🇮🇳' },
-    bn: { name: 'বাংলা', flag: '🇧🇩' },
-    ta: { name: 'தமிழ்', flag: '🇮🇳' },
-    te: { name: 'తెలుగు', flag: '🇮🇳' },
-    kn: { name: 'ಕನ್ನಡ', flag: '🇮🇳' },
-    ml: { name: 'മലയാളം', flag: '🇮🇳' },
-    gu: { name: 'ગુજરાતી', flag: '🇮🇳' },
-    mr: { name: 'मराठी', flag: '🇮🇳' },
-    pa: { name: 'ਪੰਜਾਬੀ', flag: '🇮🇳' },
-    ur: { name: 'اردو', flag: '🇵🇰' },
-    as: { name: 'অসমীয়া', flag: '🇮🇳' },
-    or: { name: 'ଓଡ଼ିଆ', flag: '🇮🇳' },
-    kok: { name: 'कोंकणी', flag: '🇮🇳' }
+    'en-IN': { name: 'English', flag: '🇬🇧' },
+    'hi-IN': { name: 'हिन्दी', flag: '🇮🇳' },
+    'bn-BD': { name: 'বাংলা', flag: '🇧🇩' },
+    'ta-IN': { name: 'தமிழ்', flag: '🇮🇳' },
+    'te-IN': { name: 'తెలుగు', flag: '🇮🇳' },
+    'mr-IN': { name: 'मराठी', flag: '🇮🇳' },
   };
 
   const currentTheme = theme === 'dark' ? 
@@ -151,15 +145,20 @@ const LanguageSelector = ({ language, setLanguage, theme }) => {
 };
 
 const Chatbot = () => {
+  const API_KEY = ""; // Leave this empty, as it's provided by the environment
+  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY}`;
+  
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [theme, setTheme] = useState('light');
-  const [language, setLanguage] = useState('en');
+  const [language, setLanguage] = useState('en-IN');
   const [menuHovered, setMenuHovered] = useState(false);
-  
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
+
   const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
 
   const themeStyles = {
     light: {
@@ -190,12 +189,6 @@ const Chatbot = () => {
     }
   };
 
-  const languageOptions = {
-    en: 'English', hi: 'हिन्दी', bn: 'বাংলা', ta: 'தமிழ்', te: 'తెలుగు',
-    kn: 'ಕನ್ನಡ', ml: 'മലയാളം', gu: 'ગুજરાતી', mr: 'मराठী', pa: 'ਪੰਜਾਬੀ',
-    ur: 'اردو', as: 'অসমীয়া', or: 'ଓଡ଼ିଆ', kok: 'कोंकणी'
-  };
-
   const currentTheme = themeStyles[theme];
 
   const handleSendMessage = async (messageText) => {
@@ -208,21 +201,43 @@ const Chatbot = () => {
     setIsLoading(true);
 
     try {
-      const prompt = `You are INGIN, a professional AI assistant for the INGRES (Indian National Groundwater Resource Estimation System) portal. Respond to this query in ${languageOptions[language]}: "${text}". Provide accurate, comprehensive information about groundwater resources, assessments, and related data. Keep responses professional, helpful, and conversational.`;
+      const systemPrompt = `You are INGIN, a professional AI assistant for the INGRES (Indian National Groundwater Resource Estimation System) portal. Your purpose is to assist users by providing accurate and comprehensive information about groundwater resources, assessments, and related data. You MUST respond in the language specified in the generation config. Keep your responses professional, helpful, and conversational.`;
       
-      const result = await model.generateContent({
-        contents: [{ parts: [{ text: prompt }] }],
-        tools: [{ google_search: {} }]
+      const payload = {
+        contents: [{ parts: [{ text: text }] }],
+        tools: [{ "google_search": {} }],
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        generationConfig: {
+          languageCode: language
+        }
+      };
+
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
 
-      const responseText = result.response.text();
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      const responseText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+      
+      if (!responseText) {
+        throw new Error('No response text from API.');
+      }
+      
       const botMessage = { text: responseText, sender: 'bot', timestamp: new Date() };
       setMessages((prevMessages) => [...prevMessages, botMessage]);
 
     } catch (error) {
       console.error("Error generating response:", error);
       const errorMessage = { 
-        text: language === 'hi' ? "क्षमा करें, तकनीकी समस्या के कारण मैं आपकी सहायता नहीं कर सकता। कृपया पुनः प्रयास करें।" : "I apologize for the technical issue. Please try again.", 
+        text: language.includes('hi') ? "क्षमा करें, तकनीकी समस्या के कारण मैं आपकी सहायता नहीं कर सकता। कृपया पुनः प्रयास करें।" : "I apologize, a technical issue prevents me from assisting you. Please try again.", 
         sender: 'bot', 
         timestamp: new Date() 
       };
@@ -246,9 +261,34 @@ const Chatbot = () => {
     setIsSidebarOpen(false);
   };
 
+  const scrollToTop = () => {
+    chatContainerRef.current.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (chatContainerRef.current) {
+        const scrolled = chatContainerRef.current.scrollTop > 50;
+        setShowScrollToTop(scrolled);
+      }
+    };
+    const chatElement = chatContainerRef.current;
+    if (chatElement) {
+      chatElement.addEventListener('scroll', handleScroll);
+    }
+    return () => {
+      if (chatElement) {
+        chatElement.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, []);
 
   return (
     <div className={`h-screen flex ${currentTheme.background} ${currentTheme.text} transition-all duration-500 overflow-hidden`}>
@@ -346,69 +386,75 @@ const Chatbot = () => {
         </div>
 
         {/* Scrollable Chat Area with proper spacing */}
-        <div className="flex-1 flex flex-col pt-20 pb-24">
+        <div ref={chatContainerRef} className="flex-1 flex flex-col pt-20 pb-24 relative overflow-y-auto custom-scrollbar">
           {/* Chat Messages Container */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <div className="p-6">
-              {messages.length === 0 ? (
-                <div className="flex items-center justify-center min-h-full">
-                  <div className="text-center px-6 max-w-2xl">
-                    <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center shadow-2xl transform transition-transform duration-300 hover:scale-110">
-                      <ChatBotIcon size={32} className="text-white" />
-                    </div>
-                    <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Welcome to INGIN</h1>
-                    <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed">
-                      Your intelligent assistant for the Indian National Groundwater Resource Estimation System. 
-                      I'm here to help you explore groundwater data, understand assessments, and navigate portal features with precision and expertise.
-                    </p>
+          <div className="p-6">
+            {messages.length === 0 ? (
+              <div className="flex items-center justify-center min-h-full">
+                <div className="text-center px-6 max-w-2xl">
+                  <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center shadow-2xl transform transition-transform duration-300 hover:scale-110">
+                    <ChatBotIcon size={32} className="text-white" />
                   </div>
+                  <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Welcome to INGIN</h1>
+                  <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed">
+                    Your intelligent assistant for the Indian National Groundwater Resource Estimation System. 
+                    I'm here to help you explore groundwater data, understand assessments, and navigate portal features with precision and expertise.
+                  </p>
                 </div>
-              ) : (
-                <div className="space-y-6 max-w-4xl mx-auto">
-                  {messages.map((msg, index) => (
-                    <div
-                      key={index}
-                      className={`flex items-start space-x-4 ${msg.sender === 'user' ? 'flex-row-reverse space-x-reverse' : ''} transform transition-all duration-300 hover:scale-[1.02]`}
-                    >
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-xl ${
-                        msg.sender === 'user' 
-                          ? 'bg-gradient-to-br from-blue-600 to-blue-700' 
-                          : 'bg-gradient-to-br from-gray-600 to-gray-700'
-                      } transform transition-transform duration-300 hover:scale-110`}>
-                        {msg.sender === 'user' ? 
-                          <UserIcon size={18} className="text-white" /> : 
-                          <ChatBotIcon size={18} className="text-white" />
-                        }
-                      </div>
-                      <div className={`max-w-3xl p-5 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl ${
-                        msg.sender === 'user'
-                          ? `${currentTheme.userMessageBg} text-white rounded-tr-sm`
-                          : `${currentTheme.messageBg} ${currentTheme.text} rounded-tl-sm`
-                      }`}>
-                        <div className="whitespace-pre-wrap leading-relaxed">{msg.text}</div>
-                        <div className="text-xs mt-3 opacity-70">
-                          {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {isLoading && (
-                    <div className="flex items-start space-x-4">
-                      <div className="w-10 h-10 bg-gradient-to-br from-gray-600 to-gray-700 rounded-full flex items-center justify-center shadow-xl">
+              </div>
+            ) : (
+              <div className="space-y-6 max-w-4xl mx-auto">
+                {messages.map((msg, index) => (
+                  <div
+                    key={index}
+                    className={`flex items-start space-x-4 ${msg.sender === 'user' ? 'flex-row-reverse space-x-reverse' : ''} transform transition-all duration-300 hover:scale-[1.02]`}
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-xl ${
+                      msg.sender === 'user' 
+                        ? 'bg-gradient-to-br from-blue-600 to-blue-700' 
+                        : 'bg-gradient-to-br from-gray-600 to-gray-700'
+                    } transform transition-transform duration-300 hover:scale-110`}>
+                      {msg.sender === 'user' ? 
+                        <UserIcon size={18} className="text-white" /> : 
                         <ChatBotIcon size={18} className="text-white" />
-                      </div>
-                      <div className={`${currentTheme.messageBg} ${currentTheme.text} p-5 rounded-2xl rounded-tl-sm shadow-lg`}>
-                        <LoadingDots />
+                      }
+                    </div>
+                    <div className={`max-w-3xl p-5 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl ${
+                      msg.sender === 'user'
+                        ? `${currentTheme.userMessageBg} text-white rounded-tr-sm`
+                        : `${currentTheme.messageBg} ${currentTheme.text} rounded-tl-sm`
+                    }`}>
+                      <div className="whitespace-pre-wrap leading-relaxed">{msg.text}</div>
+                      <div className="text-xs mt-3 opacity-70">
+                        {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-              )}
-            </div>
+                  </div>
+                ))}
+                
+                {isLoading && (
+                  <div className="flex items-start space-x-4">
+                    <div className="w-10 h-10 bg-gradient-to-br from-gray-600 to-gray-700 rounded-full flex items-center justify-center shadow-xl">
+                      <ChatBotIcon size={18} className="text-white" />
+                    </div>
+                    <div className={`${currentTheme.messageBg} ${currentTheme.text} p-5 rounded-2xl rounded-tl-sm shadow-lg`}>
+                      <LoadingDots />
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Scroll to Top Button */}
+        <button
+          onClick={scrollToTop}
+          className={`fixed bottom-28 right-8 z-50 p-4 rounded-full bg-blue-600 text-white shadow-xl transition-all duration-300 transform hover:scale-110 ${showScrollToTop ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        >
+          <ArrowUpIcon size={24} />
+        </button>
 
         {/* Fixed Input Area */}
         <div className={`fixed bottom-0 right-0 left-0 lg:left-80 ${currentTheme.borderColor} border-t backdrop-blur-lg bg-opacity-95 p-6 z-40 transition-all duration-500`}>
