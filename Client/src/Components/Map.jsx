@@ -1,10 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import ReactDOM from 'react-dom';
-
-// The following imports use CDN links. In a real project, you would install these
-// packages via npm/yarn: `npm install react-leaflet leaflet`
-// and import them like `import { MapContainer, TileLayer, Popup, Marker } from 'react-leaflet';`
-// We are using ReactDOM.render to avoid a runtime error in this specific environment.
+import React, { useState } from 'react';
+import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 
 // Mock GeoJSON data for a conceptual Tamil Nadu map with a few districts.
 // In a real application, you would load a proper GeoJSON file here.
@@ -88,36 +84,26 @@ const DataLegend = ({ data }) => {
   );
 };
 
-// Main App component.
-export default function App() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+// Main Map component.
+export default function Map() {
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
-  const [selectedArea, setSelectedArea] = useState(null);
 
-  // The map data is now local to the script tag to avoid the ReferenceError.
-  // We'll use a listener to update the state.
-  useEffect(() => {
-    const handleMapClick = (event) => {
-      setSelectedArea(event.detail);
-      setIsModalOpen(true);
-    };
-
-    document.getElementById('map-container').addEventListener('map-feature-click', handleMapClick);
-
-    return () => {
-      document.getElementById('map-container').removeEventListener('map-feature-click', handleMapClick);
-    };
-  }, []);
+  const onEachFeature = (feature, layer) => {
+    const props = feature.properties;
+    layer.bindPopup(`
+      <div style="font-family: sans-serif; font-size: 14px;">
+        <h3 style="margin: 0 0 8px 0; font-weight: bold;">${props.name} Details</h3>
+        <p><strong>Area:</strong> ${props.name}</p>
+        <p><strong>Latitude:</strong> ${props.latitude}</p>
+        <p><strong>Longitude:</strong> ${props.longitude}</p>
+        <p><strong>Water Level:</strong> <span style="background-color: ${getColor(props.waterLevel)}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: bold;">${props.waterLevelStatus}</span></p>
+      </div>
+    `);
+  };
 
   // Toggle chatbot visibility.
   const toggleChatbot = () => {
     setIsChatbotOpen(!isChatbotOpen);
-  };
-
-  // Close the details modal.
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedArea(null);
   };
 
   return (
@@ -125,91 +111,26 @@ export default function App() {
       {/* Main Map Content Area */}
       <div className="relative flex-1 p-6 flex items-center justify-center">
         {/* Map Container - Leaflet map goes here */}
-        <div id="map-container" className="w-full h-full bg-white rounded-3xl shadow-2xl overflow-hidden">
-          {/* CDN for Leaflet CSS */}
-          <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ77uVsa34XpTq9+Sj9LefjK7W3L959Rk8=" crossOrigin="" />
-          
-          <div id="map" className="w-full h-full" style={{ minHeight: '400px' }}>
-            {/* The JavaScript within the next script block will render the map. */}
-          </div>
-          
-          <script dangerouslySetInnerHTML={{ __html: `
-            // This script block renders the Leaflet map and its layers.
-            // It is placed here to work around the environment's limitations with React components.
-            
-            // Re-define local data and functions needed for the map
-            const TAMIL_NADU_GEOJSON = ${JSON.stringify(TAMIL_NADU_GEOJSON)};
-            const getColor = (level) => {
-              switch (level.toLowerCase()) {
-                case 'safe': case 'normal': return '#3b82f6';
-                case 'semi-critical': return '#f97316';
-                case 'critical': return '#eab308';
-                case 'over-exploited': case 'exploited': return '#ef4444';
-                case 'saline': return '#22c55e';
-                default: return '#94a3b8';
-              }
-            };
-            
-            // Initialize the map
-            const position = [11.1271, 78.6569];
-            const map = L.map('map').setView(position, 7);
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-              attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
-
-            // Add GeoJSON layer
-            L.geoJSON(TAMIL_NADU_GEOJSON, {
-              style: (feature) => ({
+        <div className="w-full h-full bg-white rounded-3xl shadow-2xl overflow-hidden">
+          <MapContainer center={[11.1271, 78.6569]} zoom={7} style={{ height: '100%', width: '100%' }}>
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            />
+            <GeoJSON
+              data={TAMIL_NADU_GEOJSON}
+              style={(feature) => ({
                 fillColor: getColor(feature.properties.waterLevel),
                 weight: 1,
                 opacity: 1,
                 color: 'white',
                 dashArray: '3',
                 fillOpacity: 0.7
-              }),
-              onEachFeature: (feature, layer) => {
-                layer.on('click', (e) => {
-                  const props = feature.properties;
-                  // Dispatch a custom event to the React component to update state.
-                  const event = new CustomEvent('map-feature-click', { detail: props });
-                  document.getElementById('map-container').dispatchEvent(event);
-                });
-              }
-            }).addTo(map);
-
-          `}} />
+              })}
+              onEachFeature={onEachFeature}
+            />
+          </MapContainer>
         </div>
-
-        {/* Pop-up Modal for Details */}
-        {isModalOpen && selectedArea && (
-          <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-40 p-4">
-            <div className="bg-white rounded-xl shadow-2xl p-6 max-w-lg w-full transform transition-all scale-100">
-              <div className="flex justify-between items-start">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">{selectedArea.name} Details</h2>
-                <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="space-y-2 text-sm text-gray-700">
-                <p><span className="font-semibold">Area:</span> {selectedArea.name}</p>
-                <p><span className="font-semibold">Latitude:</span> {selectedArea.latitude}</p>
-                <p><span className="font-semibold">Longitude:</span> {selectedArea.longitude}</p>
-                <p className="flex items-center">
-                  <span className="font-semibold">Water Level:</span>
-                  <span
-                    className="ml-2 p-1 px-2 rounded-full text-xs font-bold text-white"
-                    style={{ backgroundColor: getColor(selectedArea.waterLevel) }}
-                  >
-                    {selectedArea.waterLevelStatus}
-                  </span>
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Data Legend */}
@@ -251,16 +172,4 @@ export default function App() {
   );
 }
 
-// Render the App
-const rootElement = document.createElement('div');
-rootElement.id = 'root';
-document.body.appendChild(rootElement);
 
-// We're using ReactDOM.render() to fix the runtime error,
-// even though it throws a deprecation warning in modern React.
-ReactDOM.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-  rootElement
-);

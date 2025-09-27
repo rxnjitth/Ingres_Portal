@@ -1,0 +1,3 @@
+- [x] Refactor Map.jsx to use react-leaflet properly, rename component to Map, remove ReactDOM.render
+- [x] Update App.jsx to import Map and render it instead of Chatbot
+- [x] Change modal to popup inside the map

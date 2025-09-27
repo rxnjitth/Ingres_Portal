@@ -1,10 +1,10 @@
 import React from "react";
-import Chatbot from "./Components/Chatbot";
+import Map from "./Components/Map";
 
 function App() {
   return (
     <div className="h-screen">
-      <Chatbot />
+      <Map />
     </div>
   );
 }
