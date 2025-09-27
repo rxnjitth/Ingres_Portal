@@ -145,8 +145,8 @@ const LanguageSelector = ({ language, setLanguage, theme }) => {
 };
 
 const Chatbot = () => {
-  const API_KEY = ""; // Leave this empty, as it's provided by the environment
-  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY}`;
+  const API_KEY = "AIzaSyDf0DfbVcpr5jtvSiLblCoPG0PtRq5UesE"; // User's new Gemini API key
+  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
   
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -201,18 +201,23 @@ const Chatbot = () => {
     setIsLoading(true);
 
     try {
-      const systemPrompt = `You are INGIN, a professional AI assistant for the INGRES (Indian National Groundwater Resource Estimation System) portal. Your purpose is to assist users by providing accurate and comprehensive information about groundwater resources, assessments, and related data. You MUST respond in the language specified in the generation config. Keep your responses professional, helpful, and conversational.`;
+      console.log('Sending message:', text);
+      const systemPrompt = `You are INGIN, a professional AI assistant for the INGRES (Indian National Groundwater Resource Estimation System) portal. Your purpose is to assist users by providing accurate and comprehensive information about groundwater resources, assessments, and related data. Keep your responses professional, helpful, and conversational.`;
+      
+      const fullPrompt = `${systemPrompt}\n\nUser: ${text}`;
       
       const payload = {
-        contents: [{ parts: [{ text: text }] }],
-        tools: [{ "google_search": {} }],
-        systemInstruction: {
-          parts: [{ text: systemPrompt }]
-        },
+        contents: [{ parts: [{ text: fullPrompt }] }],
         generationConfig: {
-          languageCode: language
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 1024
         }
       };
+
+      console.log('API Payload:', payload);
+      console.log('API URL:', API_URL);
 
       const response = await fetch(API_URL, {
         method: 'POST',
@@ -220,12 +225,20 @@ const Chatbot = () => {
         body: JSON.stringify(payload)
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.log('Error response body:', errorText);
         throw new Error(`API error: ${response.statusText}`);
       }
 
       const result = await response.json();
+      console.log('API Result:', result);
       const responseText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+      
+      console.log('Extracted response text:', responseText);
       
       if (!responseText) {
         throw new Error('No response text from API.');
@@ -233,6 +246,7 @@ const Chatbot = () => {
       
       const botMessage = { text: responseText, sender: 'bot', timestamp: new Date() };
       setMessages((prevMessages) => [...prevMessages, botMessage]);
+      console.log('Bot message added:', botMessage);
 
     } catch (error) {
       console.error("Error generating response:", error);
@@ -476,7 +490,7 @@ const Chatbot = () => {
                 <SendIcon size={20} />
               </button>
             </div>
-          </form>
+          </form>Chatbot.jsx
         </div>
       </div>
     </div>
